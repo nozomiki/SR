@@ -54,7 +54,7 @@ flags.DEFINE_boolean("load_model", True, "Load saved model before start")
 flags.DEFINE_string("model_name", "F64_D5_LR0.000100", "model name for save files and tensorboard log")
 
 # Debugging or Logging
-flags.DEFINE_string("output_dir", "output", "Directory for output test images")
+flags.DEFINE_string("output_dir", "output_tmp", "Directory for output test images")
 flags.DEFINE_string("log_dir", "test_log", "Directory for tensorboard log")
 flags.DEFINE_boolean("debug", False, "Display each calculated MSE and weight variables")
 flags.DEFINE_boolean("initialise_log", False, "Clear all tensorboard log before start")
@@ -93,7 +93,7 @@ def main(_):
         psnr_bic = util.get_psnr(mse_bic)
         psnr = util.get_psnr(mse)
         path, name = os.path.split(label_filenames[i])
-        print("%s MSE:%f, PSNR_bic:%f, PSNR:%f\n" % (name, mse, psnr_bic, psnr))
+        print("%s MSE:%f, PSNR_bil:%f, PSNR:%f\n" % (name, mse, psnr_bic, psnr))
 
 
 if __name__ == '__main__':

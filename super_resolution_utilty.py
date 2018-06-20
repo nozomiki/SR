@@ -195,12 +195,21 @@ def set_image_alignment(image, alignment):
 	return image
 
 
-def resize_image_by_bicubic(image, scale):
-	size = [int(image.shape[0] * scale), int(image.shape[1] * scale)]
-	image = image.reshape(1, image.shape[0], image.shape[1], image.shape[2])
-	tf_image = tf.image.resize_bicubic(image, size=size)
-	image = tf_image.eval()
-	return image.reshape(image.shape[1], image.shape[2], image.shape[3])
+def resize_image_by_pil_bilinear(image, scale):
+	width, height = image.shape[1], image.shape[0]
+	new_width = int(width * scale)
+	new_height = int(height * scale)
+
+	if len(image.shape) == 3 and image.shape[2] == 3:
+		image = Image.fromarray(image)
+		image = image.resize([new_width, new_height], resample=Image.BILINEAR)
+		image = np.asarray(image)
+	else:
+		image = Image.fromarray(image.reshape(height, width))
+		image = image.resize([new_width, new_height], resample=Image.BILINEAR)
+		image = np.asarray(image)
+		image = image.reshape(new_height, new_width, 1)
+	return image
 
 
 def resize_image_by_pil_bicubic(image, scale):

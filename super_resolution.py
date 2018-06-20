@@ -145,7 +145,7 @@ class SuperResolution:
         
         # initializing variables
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth = False
+        config.gpu_options.allow_growth = True
         self.sess = tf.InteractiveSession(config=config)
         self.H_conv = (self.inference_depth + 1) * [None]
         self.HS_conv = self.inference_depth * [None]
@@ -255,7 +255,13 @@ class SuperResolution:
 
         self.net_image = net_image1
         self.net_residual = net_residual1
-        self.net_feature = net_feature1   
+        self.net_feature = net_feature1  
+#        if self.visualize:
+#            tf.summary.image("residual0/" + self.model_name, self.net_residual.outputs[:,0,:,:,:], max_outputs=1)
+#            tf.summary.image("residual1/" + self.model_name, self.net_residual.outputs[:,1,:,:,:], max_outputs=1)
+#            tf.summary.image("residual2/" + self.model_name, self.net_residual.outputs[:,2,:,:,:], max_outputs=1)
+#            tf.summary.image("residual3/" + self.model_name, self.net_residual.outputs[:,3,:,:,:], max_outputs=1)
+#            tf.summary.image("residual4/" + self.model_name, self.net_residual.outputs[:,4,:,:,:], max_outputs=1)
 
         if self.summary:
             # convert to tf.summary.image format [batch_num, height, width, channels]
@@ -314,7 +320,7 @@ class SuperResolution:
         
         self.y_ = self.H
         
-#		tf.summary.image("Residual1/" + self.model_name, self.y_, max_outputs=self.y_.get_shape().as_list()[0])
+        tf.summary.image("prediction/" + self.model_name, self.y_, max_outputs=1)
         
         if self.residual:
             self.y_ = tf.add(self.y_, self.net_image.outputs, name="output")
@@ -492,13 +498,13 @@ class SuperResolution:
         label_image = label_image.reshape(1, label_image.shape[0], label_image.shape[1], label_image.shape[2])
         y = self.sess.run(self.y_, feed_dict={self.x: image})
         print(y.shape)
-        summary_str = self.sess.run(self.summary_op,
-		                            feed_dict={self.x: image,
-		                                       self.y: label_image,
-		                                       self.loss_alpha_input: self.loss_alpha})
-
-        self.summary_writer.add_summary(summary_str, 0)
-        self.summary_writer.flush()
+#        summary_str = self.sess.run(self.summary_op,
+#		                            feed_dict={self.x: image,
+#		                                       self.y: label_image,
+#		                                       self.loss_alpha_input: self.loss_alpha})
+#
+#        self.summary_writer.add_summary(summary_str, 0)
+#        self.summary_writer.flush()
 
         return np.multiply(y[0], 255.0 / self.max_value)
 
@@ -507,23 +513,23 @@ class SuperResolution:
         filename, extension = os.path.splitext(label_file_path)
         output_folder = output_folder + "/"
         org_image = util.load_image(label_file_path)
-        util.save_image(output_folder + label_file_path, org_image)
+#        util.save_image(output_folder + label_file_path, org_image)
 
         input_ycbcr_image = []
         if len(org_image.shape) >= 3 and org_image.shape[2] == 3 and self.channels == 1:
             for i in range (0,5):
                 input_image = util.load_image(file_path[i])
                 scaled_image = util.resize_image_by_pil_bicubic(input_image, 1.0/self.scale)
-                util.save_image(output_folder + file_path[i] + "_bicubic" + extension, scaled_image)
+#                util.save_image(output_folder + file_path[i] + "_bicubic" + extension, scaled_image)
                 scaled_image = util.convert_rgb_to_ycbcr(scaled_image, jpeg_mode=self.jpeg_mode)
                 input_ycbcr_image.append(scaled_image[:, :, 0:1])
             input_ycbcr_image = np.array(input_ycbcr_image)
             
             org_image = util.convert_rgb_to_ycbcr(org_image, jpeg_mode=self.jpeg_mode)
             output_y_image = self.do(input_ycbcr_image, org_image[:, :, 0:1])
-            util.save_image(output_folder + filename + "_result_y" + extension, output_y_image)
+#            util.save_image(output_folder + filename + "_result_y" + extension, output_y_image)
             
-            img_up = util.resize_image_by_pil_bicubic(input_ycbcr_image[4], self.scale)
+            img_up = util.resize_image_by_pil_bilinear(input_ycbcr_image[4], self.scale)
             mse_bic = util.compute_mse(org_image[:, :, 0:1], img_up, border_size=self.scale)
             mse = util.compute_mse(org_image[:, :, 0:1], output_y_image, border_size=self.scale)
 
@@ -532,20 +538,20 @@ class SuperResolution:
             for i in range (0,5):
                 input_image = util.load_image(file_path[i])
                 scaled_image = util.resize_image_by_pil_bicubic(input_image, 1.0/self.scale)
-                util.save_image(output_folder + file_path[i] + "_bicubic" + extension, scaled_image)
+#                util.save_image(output_folder + file_path[i] + "_bicubic" + extension, scaled_image)
                 input_ycbcr_image.append(scaled_image)
             input_ycbcr_image = np.array(input_ycbcr_image)
 			
             image = self.do(input_ycbcr_image, org_image)
             
-            img_up = util.resize_image_by_pil_bicubic(input_ycbcr_image[4], self.scale)
+            img_up = util.resize_image_by_pil_bilinear(input_ycbcr_image[4], self.scale)
             mse_bic = util.compute_mse(org_image, img_up, border_size=self.scale)
             mse = util.compute_mse(org_image, image, border_size=self.scale)
         else:
             print('wrong')
             return 0
 
-        util.save_image(output_folder + filename + "_result" + extension, image)
+#        util.save_image(output_folder + filename + "_result" + extension, image)
         return mse_bic, mse
 
     def do_super_resolution_for_test(self, i, label_file_path, file_path, output_folder="output", output=True):
