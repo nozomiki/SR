@@ -1,13 +1,5 @@
 # coding=utf8
 
-"""
-Deeply-Recursive Convolutional Network for Image Super-Resolution
-Paper: http://www.cv-foundation.org/openaccess/content_cvpr_2016/html/Kim_Deeply-Recursive_Convolutional_Network_CVPR_2016_paper.html
-
-Test implementation model
-Author: Jin Yamanaka
-"""
-
 import os
 import random
 import time
@@ -47,22 +39,22 @@ class DataSet:
 
         batch_group_num = batch_images_count // 5
         images = [[] for group in range(batch_group_num)]
-        
-        group = 0       
+
+        group = 0
         for n in range(real_images):
             for j in range(batch_images[n*5].shape[0]):
                 for i in range(n*5, n*5+5):
                     images[group].append(batch_images[i][j])        #images = [group][0~4]
-                group += 1 
+                group += 1
                 if (group == batch_group_num):
                     break
-        images = np.array(images)          
+        images = np.array(images)
 
         self.image = images
         self.count = batch_group_num
 
         print("%d group mini-batch images are built." % len(self.image))
-        
+
     def convert_to_label_batch(self, window_size, stride, max_value=255.0):
 
         batch_images = self.count * [None]           #number of images
@@ -123,7 +115,7 @@ class SuperResolution:
         self.loss_beta = flags.loss_beta
         self.weight_dev = flags.weight_dev
         self.initializer = flags.initializer
-        
+
         # Image Processing Parameters
         self.scale = flags.scale
         self.resblock_depth = flags.resblock_depth
@@ -131,18 +123,18 @@ class SuperResolution:
         self.channels = flags.channels
         self.jpeg_mode = flags.jpeg_mode
         self.residual = flags.residual
-        
+
         # Training or Other Parameters
         self.checkpoint_dir = flags.checkpoint_dir
         self.model_name = model_name
-        
+
         # Debugging or Logging Parameters
         self.log_dir = flags.log_dir
         self.debug = flags.debug
         self.visualize = flags.visualize
         self.summary = flags.summary
         self.log_weight_image_num = 16
-        
+
         # initializing variables
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
@@ -151,22 +143,22 @@ class SuperResolution:
         self.HS_conv = self.inference_depth * [None]
         self.batch_input_images = self.batch_num * [None]
         self.batch_true_images = self.batch_num * [None]
-        
+
         self.index_in_epoch = -1
         self.epochs_completed = 0
         self.min_validation_mse = -1
         self.min_validation_epoch = -1
         self.step = 0
         self.training_psnr = 0
-        
+
         self.psnr_graph_epoch = []
         self.psnr_graph_value = []
-        
+
         util.make_dir(self.log_dir)
         util.make_dir(self.checkpoint_dir)
         if flags.initialise_log:
             util.clean_dir(self.log_dir)
-        
+
         print("Features:%d Inference Depth:%d Initial LR:%0.5f [%s]" % \
               (self.feature_num, self.inference_depth, self.lr, self.model_name))
 
@@ -201,61 +193,61 @@ class SuperResolution:
     def LapSRNSingleLevel(self, net_image, net_feature, shapes, reuse=False):
         with tf.variable_scope("Model_level", reuse=reuse):
             tl.layers.set_name_reuse(reuse)
-			        
+
             net_tmp = net_feature
 #			shapes = net_image.outputs.get_shape()
             # recursive block
             for d in range(self.resblock_depth):
                  net_tmp = Conv3dLayer(net_tmp,shape=[1, self.cnn_size, self.cnn_size, self.feature_num, self.feature_num],
-                               strides=[1,1,self.cnn_stride, self.cnn_stride,1], name='conv_D%d' % d, act=tf.nn.relu, 
+                               strides=[1,1,self.cnn_stride, self.cnn_stride,1], name='conv_D%d' % d, act=tf.nn.relu,
                                W_init=tf.contrib.layers.xavier_initializer())
-                 
+
             net_feature = DeConv3dLayer(net_tmp,shape=[1, self.cnn_size, self.cnn_size, self.feature_num, self.feature_num],
                                output_shape=[shapes[0], 5, 2*shapes[2], 2*shapes[3], self.feature_num], act=tf.nn.relu,
-                               strides=[1,1,self.cnn_stride*2, self.cnn_stride*2,1], name='upconv_feature', 
+                               strides=[1,1,self.cnn_stride*2, self.cnn_stride*2,1], name='upconv_feature',
                                W_init=tf.contrib.layers.xavier_initializer())
 
             # add image back
             residual_level = Conv3dLayer(net_feature,shape=[1, self.cnn_size, self.cnn_size, self.feature_num, self.channels],
-                               strides=[1,1,self.cnn_stride, self.cnn_stride,1], name='res', 
+                               strides=[1,1,self.cnn_stride, self.cnn_stride,1], name='res',
                                W_init=tf.contrib.layers.xavier_initializer())
 
             net_image = UpSampling2dLayer(net_image, size=[2,2], name='upconv_image')
             res_image = DrawOutLayer(residual_level, name='residual_image')
             net_image = ElementwiseLayer(layer=[res_image,net_image],combine_fn=tf.add,name='add_image')
-    
+
         return net_image, net_feature, residual_level
 
 
 
     def build_lap_graph(self, reuse=False):
-        
+
         self.x = tf.placeholder(tf.float32, shape=[None, 5, None, None, self.channels], name="X")
         self.y = tf.placeholder(tf.float32, shape=[None, None, None, self.channels], name="Y")
-        
+
         n_level = int(np.log2(self.scale))
         assert n_level >= 1
 
         shapes = tf.shape(self.x)
         with tf.variable_scope("LapSRN", reuse=reuse) as vs:
             tl.layers.set_name_reuse(reuse)
-        
+
             inputs_level = InputLayer(self.x, name='input_level')
-            
-            net_feature = Conv3dLayer(inputs_level, shape=[1, self.cnn_size, self.cnn_size, self.channels, self.feature_num], 
-                           strides=[1,1,self.cnn_stride, self.cnn_stride,1], W_init=tf.contrib.layers.xavier_initializer(), 
+
+            net_feature = Conv3dLayer(inputs_level, shape=[1, self.cnn_size, self.cnn_size, self.channels, self.feature_num],
+                           strides=[1,1,self.cnn_stride, self.cnn_stride,1], W_init=tf.contrib.layers.xavier_initializer(),
 	                        act=tf.nn.relu, name='init_conv')
-			
+
             image = self.x[:,4,:,:,:]
             net_image = InputLayer(image, name='image_level')
 
-            # 2X for each level 
+            # 2X for each level
             net_image1, net_feature1, net_residual1 = self.LapSRNSingleLevel(net_image, net_feature, shapes, reuse=reuse)
 #			net_image2, net_feature2, net_residual2 = self.LapSRNSingleLevel(net_image1, net_feature1, reuse=True)
 
         self.net_image = net_image1
         self.net_residual = net_residual1
-        self.net_feature = net_feature1  
+        self.net_feature = net_feature1
 #        if self.visualize:
 #            tf.summary.image("residual0/" + self.model_name, self.net_residual.outputs[:,0,:,:,:], max_outputs=1)
 #            tf.summary.image("residual1/" + self.model_name, self.net_residual.outputs[:,1,:,:,:], max_outputs=1)
@@ -274,21 +266,21 @@ class SuperResolution:
             util.add_summaries("W0", self.model_name, self.Wp_conv, mean=True, max=True, min=True)
 
     def build_merge_graph(self):
-        
-        # M-2        
+
+        # M-2
         self.Wmer2_conv = util.weight([3, 1, 1, self.feature_num, self.feature_num],
 		                            stddev=self.weight_dev, name="Wm-2_conv", initializer=self.initializer)
         self.Bmer2_conv = util.bias([self.feature_num], name="Bm-2")
         self.Mer2_conv = util.conv3d_with_bias(self.net_feature.outputs, self.Wmer2_conv, self.cnn_stride, self.Bmer2_conv, pad="VALID", add_relu=True, name="M-2")
-        
+
         # M-1
         self.Wmer1_conv = util.weight([3, 1, 1, self.feature_num, self.feature_num],
 		                            stddev=self.weight_dev, name="Wm-1_conv", initializer=self.initializer)
         self.Bmer1_conv = util.bias([self.feature_num], name="Bm-1")
         self.H_conv[0] = util.conv3d_with_bias(self.Mer2_conv, self.Wmer2_conv, self.cnn_stride, self.Bmer2_conv, pad="VALID", add_relu=True, name="M-1")
-		
-        self.H_conv[0] = self.H_conv[0][:,0,:,:,:]       
-    
+
+        self.H_conv[0] = self.H_conv[0][:,0,:,:,:]
+
     def build_inference_graph(self):
 
         if self.inference_depth <= 0:
@@ -297,7 +289,7 @@ class SuperResolution:
         self.WL_conv = util.weight([self.cnn_size, self.cnn_size, self.feature_num, self.feature_num],
 		                          stddev=self.weight_dev, name="WL_conv", initializer="diagonal")
         self.BL_conv = util.bias([self.feature_num], name="BL")
-        
+
         self.WS_conv = util.weight([self.cnn_size, self.cnn_size, 1, self.feature_num],
 		                          stddev=self.weight_dev, name="WS_conv", initializer="diagonal")
         self.BS_conv = util.bias([self.feature_num], name="BS")
@@ -306,22 +298,22 @@ class SuperResolution:
             self.H_conv[i + 1] = util.conv2d_with_bias(self.H_conv[i], self.WL_conv, 1, self.BL_conv, add_relu=True,
 			                                           name="H%d" % (i + 1))
             self.HS_conv[i] = util.conv2d_with_bias(self.net_residual.outputs[:,i,:,:,:], self.WS_conv, 1, self.BS_conv, add_relu=True,
-			                                           name="HS%d" % (i + 1)) 
-            self.H_conv[i + 1] = tf.add(self.H_conv[i + 1], self.HS_conv[i])       
-            
+			                                           name="HS%d" % (i + 1))
+            self.H_conv[i + 1] = tf.add(self.H_conv[i + 1], self.HS_conv[i])
+
             # tf.summary.image("Feature_map%d/" % (i+1) + self.model_name, self.R_conv, max_outputs=4)
-            
+
         self.W_conv = util.weight([self.cnn_size, self.cnn_size, self.feature_num, self.channels],
 		                          stddev=self.weight_dev, name="W_conv", initializer=self.initializer)
         self.B_conv = util.bias([self.channels], name="B")
-        
+
         self.H = util.conv2d_with_bias(self.H_conv[self.inference_depth], self.W_conv, 1, self.B_conv, add_relu=True,
 			                                           name="H")
-        
+
         self.y_ = self.H
-        
+
         tf.summary.image("prediction/" + self.model_name, self.y_, max_outputs=1)
-        
+
         if self.residual:
             self.y_ = tf.add(self.y_, self.net_image.outputs, name="output")
 
@@ -353,7 +345,7 @@ class SuperResolution:
                 tf.summary.scalar("loss2/" + self.model_name, loss2)
             loss1 = tf.multiply(self.loss_alpha_input, loss1, name="loss1_alpha")
             loss2 = tf.multiply(1 - self.loss_alpha_input, loss2, name="loss2_alpha")
-			
+
             loss = loss1 + loss2
 
         if self.visualize:
@@ -410,7 +402,7 @@ class SuperResolution:
     def train_batch(self, log_mse=False):
 
         _, mse = self.sess.run([self.train_step, self.mse], feed_dict={self.x: self.batch_input_images,
-		                                                               self.y: self.batch_true_images,                                                                      
+		                                                               self.y: self.batch_true_images,
 		                                                               self.lr_input: self.lr,
 		                                                               self.loss_alpha_input: self.loss_alpha})
         self.step += 1
@@ -490,7 +482,7 @@ class SuperResolution:
         if len(input_image.shape) == 3:
             input_image = input_image.reshape(input_image.shape[0], input_image.shape[1], input_image.shape[2], 1)
         if len(label_image.shape) == 2:
-            label_image = label_image.reshape(label_image.shape[0], label_image.shape[1], 1)            
+            label_image = label_image.reshape(label_image.shape[0], label_image.shape[1], 1)
 
         image = np.multiply(input_image, self.max_value / 255.0)
         label_image = np.multiply(label_image, self.max_value / 255.0)
@@ -524,11 +516,11 @@ class SuperResolution:
                 scaled_image = util.convert_rgb_to_ycbcr(scaled_image, jpeg_mode=self.jpeg_mode)
                 input_ycbcr_image.append(scaled_image[:, :, 0:1])
             input_ycbcr_image = np.array(input_ycbcr_image)
-            
+
             org_image = util.convert_rgb_to_ycbcr(org_image, jpeg_mode=self.jpeg_mode)
             output_y_image = self.do(input_ycbcr_image, org_image[:, :, 0:1])
 #            util.save_image(output_folder + filename + "_result_y" + extension, output_y_image)
-            
+
             img_up = util.resize_image_by_pil_bilinear(input_ycbcr_image[4], self.scale)
             mse_bic = util.compute_mse(org_image[:, :, 0:1], img_up, border_size=self.scale)
             mse = util.compute_mse(org_image[:, :, 0:1], output_y_image, border_size=self.scale)
@@ -541,9 +533,9 @@ class SuperResolution:
 #                util.save_image(output_folder + file_path[i] + "_bicubic" + extension, scaled_image)
                 input_ycbcr_image.append(scaled_image)
             input_ycbcr_image = np.array(input_ycbcr_image)
-			
+
             image = self.do(input_ycbcr_image, org_image)
-            
+
             img_up = util.resize_image_by_pil_bilinear(input_ycbcr_image[4], self.scale)
             mse_bic = util.compute_mse(org_image, img_up, border_size=self.scale)
             mse = util.compute_mse(org_image, image, border_size=self.scale)
@@ -558,25 +550,25 @@ class SuperResolution:
 
         true_image = util.set_image_alignment(util.load_image(label_file_path), self.scale)
         output_folder = output_folder + "/"
-        filename, extension = os.path.splitext(label_file_path)	
-        
+        filename, extension = os.path.splitext(label_file_path)
+
         input_y_image = []
         if len(true_image.shape) >= 3 and true_image.shape[2] == 3 and self.channels == 1:
             for j in range (i*5, i*5+5):
                 input_image = util.load_input_image(file_path[i], channels=1, scale=self.scale, alignment=self.scale)
                 input_y_image.append(input_image)         # convert_ycbcr:True->False
-            input_y_image = np.dstack((input_y_image[0], input_y_image[1], 
+            input_y_image = np.dstack((input_y_image[0], input_y_image[1],
                                        input_y_image[2], input_y_image[3], input_y_image[4]))
             true_ycbcr_image = util.convert_rgb_to_ycbcr(true_image, jpeg_mode=self.jpeg_mode)
-        
+
             output_y_image = self.do(input_y_image, true_ycbcr_image[:, :, 0:1])
             mse = util.compute_mse(true_ycbcr_image[:, :, 0:1], output_y_image, border_size=self.scale)
-        
+
             if output:
                 output_color_image = util.convert_y_and_cbcr_to_rgb(output_y_image, true_ycbcr_image[:, :, 1:3],
         		                                                    jpeg_mode=self.jpeg_mode)
                 loss_image = util.get_loss_image(true_ycbcr_image[:, :, 0:1], output_y_image, border_size=self.scale)
-        
+
                 util.save_image(output_folder + label_file_path, true_image)
                 util.save_image(output_folder + filename + "_input" + extension, input_y_image)
                 util.save_image(output_folder + filename + "_true_y" + extension, true_ycbcr_image[:, :, 0:1])
@@ -588,15 +580,15 @@ class SuperResolution:
                 input_image = util.load_input_image(file_path[i], channels=1, scale=self.scale, alignment=self.scale)
                 input_y_image.append(util.build_input_image(input_image, channels=self.channels, scale=self.scale, alignment=self.scale,
         	                                                convert_ycbcr=False, jpeg_mode=self.jpeg_mode))         # convert_ycbcr:True->False
-            input_y_image = np.dstack((input_y_image[0], input_y_image[1], 
+            input_y_image = np.dstack((input_y_image[0], input_y_image[1],
                                        input_y_image[2], input_y_image[3], input_y_image[4]))
             output_image = self.do(input_y_image, true_image)
             mse = util.compute_mse(true_image, output_image, border_size=self.scale)
-        
+
             if output:
                 util.save_image(output_folder + label_file_path, true_image)
                 util.save_image(output_folder + filename + "_result" + extension, output_image)
-        
+
         print("MSE:%f PSNR:%f" % (mse, util.get_psnr(mse)))
         return mse
 

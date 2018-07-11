@@ -1,18 +1,5 @@
 # coding=utf8
 
-"""
-Deeply-Recursive Convolutional Network for Image Super-Resolution
-by Jiwon Kim, Jung Kwon Lee and Kyoung Mu Lee Department of ECE, ASRI, Seoul National University, Korea
-
-Paper: http://www.cv-foundation.org/openaccess/content_cvpr_2016/html/Kim_Deeply-Recursive_Convolutional_Network_CVPR_2016_paper.html
-
-Test implementation using TensorFlow library.
-
-Author: Jin Yamanaka
-Many thanks for: Masayuki Tanaka and Shigesumi Kuwashima
-Project: https://github.com/jiny2001/deeply-recursive-cnn-tf
-"""
-
 import tensorflow as tf
 import super_resolution as sr
 import super_resolution_utilty as util
@@ -93,7 +80,7 @@ def main(_):
       train_label_filenames = util.build_test_filenames(FLAGS.data_dir, FLAGS.label_dataset, FLAGS.scale)
     else:
       training_filenames =  util.get_files_in_directory(FLAGS.data_dir + "/" + FLAGS.training_set + "/")
-      train_label_filenames =  util.get_files_in_directory(FLAGS.data_dir + "/" + FLAGS.training_label + "/")      
+      train_label_filenames =  util.get_files_in_directory(FLAGS.data_dir + "/" + FLAGS.training_label + "/")
 
     print("Loading and building cache images...")
     model.load_datasets(FLAGS.cache_dir, training_filenames, train_label_filenames, test_filenames, test_label_filenames, FLAGS.batch_size, FLAGS.stride_size)
@@ -108,7 +95,7 @@ def main(_):
 
   if FLAGS.is_training:
     train(training_filenames, test_filenames, model)
-  
+
   psnr = 0
   total_mse = 0
   i = 0
@@ -123,14 +110,14 @@ def main(_):
   util.print_num_of_total_parameters()
   print("Final MSE:%f, PSNR:%f" % (total_mse / len(test_filenames), psnr / len(test_filenames)))
 
-  
+
 def train(training_filenames, test_filenames, model):
 
   mse = model.evaluate()
   model.print_status(mse)
 
   while model.lr > FLAGS.end_lr:
-  
+
     logging = model.step % FLAGS.evaluate_step == 0     # %表示取余
     model.build_training_batch()
     model.train_batch(log_mse=logging)
@@ -147,7 +134,7 @@ def train(training_filenames, test_filenames, model):
 
   if FLAGS.debug:
     model.print_weight_variables()
-    
+
 
 if __name__ == '__main__':
   tf.app.run()

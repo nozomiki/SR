@@ -1,13 +1,5 @@
 # coding=utf8
 
-"""
-Deeply-Recursive Convolutional Network for Image Super-Resolution
-Paper: http://www.cv-foundation.org/openaccess/content_cvpr_2016/html/Kim_Deeply-Recursive_Convolutional_Network_CVPR_2016_paper.html
-
-Test implementation utility
-Author: Jin Yamanaka
-"""
-
 from __future__ import division
 
 import datetime
@@ -342,7 +334,7 @@ def get_split_images(image, window_size, stride=None):
 	strides = size * np.array([width * stride, stride, width, 1])
 	windows = np.lib.stride_tricks.as_strided(image, shape=shape, strides=strides)                #分割 batch
    #reshape  [shape = (batch_num, batch_size, batch_size, channels)]
-	windows = windows.reshape(windows.shape[0] * windows.shape[1], windows.shape[2], windows.shape[3], 1)    
+	windows = windows.reshape(windows.shape[0] * windows.shape[1], windows.shape[2], windows.shape[3], 1)
 
 	return windows
 
@@ -359,11 +351,11 @@ def conv3d_transpose(x, w, stride, name=""):
 #	outputs_shape = x.get_shape().as_list()
 #	if outputs_shape[0] == None:
 #		outputs_shape[0] = 127
-#	outputs_shape = [outputs_shape[0], 64, 64, int(w.shape[2])]   
+#	outputs_shape = [outputs_shape[0], 64, 64, int(w.shape[2])]
 	outputs_shape = tf.shape(x)
 	outputs_shape = [outputs_shape[0], outputs_shape[1], 2*outputs_shape[2], 2*outputs_shape[3], int(w.shape[3])]
 	return tf.nn.conv3d_transpose(x, w, strides=[1, 1, stride, stride, 1], output_shape=outputs_shape,
-                               padding="SAME", name=name + "_transp")                            
+                               padding="SAME", name=name + "_transp")
 
 def conv2d_with_bias(x, w, stride, bias, name=""):
 	conv = conv2d(x, w, stride, name)
@@ -376,7 +368,7 @@ def conv2d_with_bias(x, w, stride, bias, add_relu=False, name=""):
 		return tf.nn.relu(tf.add(conv, bias, name=name + "_add"), name=name + "_relu")
 	else:
 		return tf.add(conv, bias, name=name + "_add")
-    
+
 def conv3d_with_bias(x, w, stride, bias, pad="SAME", add_relu=False, name=""):
 	conv = conv3d(x, w, stride, pad, name)
 	if add_relu:
